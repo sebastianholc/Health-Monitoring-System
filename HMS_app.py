@@ -1,6 +1,7 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
 
+from astronaut import Astronaut
 
 # ==========================================
 # PAGE CONFIGURATION
@@ -35,6 +36,11 @@ astronauts = {
         "temperature": 36.8
     }
 }
+astronaut_1 = Astronaut("Sebastian Holc",68,98,36.7)
+astronaut_2 = Astronaut("Igor Zabłocki",75,97,36.5)
+astronaut_3 = Astronaut("Adam Guziałek",62,99,36.8)
+
+astronauts_names = [astronaut_1.name, astronaut_2.name, astronaut_3.name]
 
 
 # ==========================================
@@ -289,7 +295,7 @@ selected_page = sidebar()
 astronaut_name = option_menu(
     menu_title=None,
 
-    options=list(astronauts.keys()),
+    options=astronauts_names,
 
     icons=[
         "person-circle",
@@ -346,7 +352,7 @@ astronaut_name = option_menu(
 # DISPLAY SELECTED PAGE
 # ==========================================
 
-astronaut_data = astronauts[astronaut_name]
+#astronaut_data = astronauts[astronaut_name]
 
 # showing selected page
-pages[selected_page](astronaut_data)
+#pages[selected_page](astronaut_data)
