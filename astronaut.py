@@ -2,7 +2,7 @@
 
 
 class Astronaut:
-    name = "Astronaut 1"
+    name = "Astronaut"
     heart_rate = 0
     spo2 = 0
     temperature = 0

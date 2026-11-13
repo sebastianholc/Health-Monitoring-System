@@ -19,42 +19,33 @@ st.set_page_config(
 # ASTRONAUT DATA
 # ==========================================
 
-astronauts = {
-    "Astronaut 1": {
-        "heart_rate": 68,
-        "spo2": 98,
-        "temperature": 36.7
-    },
-    "Astronaut 2": {
-        "heart_rate": 75,
-        "spo2": 97,
-        "temperature": 36.5
-    },
-    "Astronaut 3": {
-        "heart_rate": 62,
-        "spo2": 99,
-        "temperature": 36.8
-    }
-}
+
 astronaut_1 = Astronaut("Sebastian Holc",68,98,36.7)
 astronaut_2 = Astronaut("Igor Zabłocki",75,97,36.5)
 astronaut_3 = Astronaut("Adam Guziałek",62,99,36.8)
 
-astronauts_names = [astronaut_1.name, astronaut_2.name, astronaut_3.name]
+# Dictionary: astronaut name -> Astronaut object
+astronauts = {
+    astronaut_1.name: astronaut_1,
+    astronaut_2.name: astronaut_2,
+    astronaut_3.name: astronaut_3
+}
+
+astronauts_names = list(astronauts.keys())
 
 
 # ==========================================
 # DASHBOARD PAGES
 # ==========================================
 
-def overview(data):
+def overview(astronaut):
     st.title("Health Overview")
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Heart Rate", f'{data["heart_rate"]} BPM')
-    col2.metric("SpO2", f'{data["spo2"]}%')
-    col3.metric("Temperature", f'{data["temperature"]} °C')
+    col1.metric("Heart Rate", f'{astronaut.heart_rate} BPM')
+    col2.metric("SpO2", f'{astronaut.spo2}%')
+    col3.metric("Temperature", f'{astronaut.temperature} °C')
 
 
 def vitals(data):
@@ -352,7 +343,8 @@ astronaut_name = option_menu(
 # DISPLAY SELECTED PAGE
 # ==========================================
 
-#astronaut_data = astronauts[astronaut_name]
+# Get selected astronaut object
+astronaut_data = astronauts[astronaut_name]
 
-# showing selected page
-#pages[selected_page](astronaut_data)
+# Display selected page
+pages[selected_page](astronaut_data)
