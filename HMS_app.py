@@ -56,6 +56,7 @@ def vitals(astronaut):
 def activity(astronaut):
     st.title("Activity")
     st.write("Activity monitoring")
+    st.write("kd")
 
 
 def recovery(astronaut):
