@@ -35,7 +35,7 @@ astronauts_names = list(astronauts.keys())
 
 
 # ==========================================
-# DASHBOARD PAGES
+# PAGES
 # ==========================================
 
 def overview(astronaut):
@@ -48,24 +48,35 @@ def overview(astronaut):
     col3.metric("Temperature", f'{astronaut.temperature} °C')
 
 
-def vitals(data):
+def vitals(astronaut):
     st.title("Vital Signs")
     st.write("Detailed vital signs analysis")
 
 
-def activity(data):
+def activity(astronaut):
     st.title("Activity")
     st.write("Activity monitoring")
 
 
-def recovery(data):
+def recovery(astronaut):
     st.title("Recovery")
     st.write("Recovery monitoring")
 
 
-def assistant(data):
+def assistant(astronaut):
     st.title("Health Assistant")
     st.write("AI Health Assistant")
+
+
+pages = {
+    "Overview": overview,
+    "Vitals": vitals,
+    "Activity": activity,
+    "Recovery": recovery,
+    "Assistant": assistant
+}
+
+pages_names = list(pages.keys())
 
 
 # ==========================================
@@ -195,13 +206,7 @@ def sidebar():
 
         selected = option_menu(
             menu_title="HEALTH MONITORING SYSTEM",
-            options=[
-                "Overview",
-                "Vitals",
-                "Activity",
-                "Recovery",
-                "Assistant"
-            ],
+            options=pages_names,
             icons=[
                 "grid",
                 "heart-pulse",
@@ -259,17 +264,6 @@ def sidebar():
     return selected
 
 
-# ==========================================
-# PAGE SELECTION
-# ==========================================
-
-pages = {
-    "Overview": overview,
-    "Vitals": vitals,
-    "Activity": activity,
-    "Recovery": recovery,
-    "Assistant": assistant
-}
 
 
 # ==========================================
