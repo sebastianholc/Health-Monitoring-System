@@ -1,0 +1,31 @@
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyCharm
+.idea/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Logs
+*.log
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
