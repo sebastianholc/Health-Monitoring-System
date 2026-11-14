@@ -41,10 +41,11 @@ def load_database_measurements(database_path: Path) -> pd.DataFrame:
         time_column = "measured_at" if "measured_at" in columns else "date"
 
         readings = pd.read_sql_query(
-            f"""
-            SELECT astronaut_id, {time_column} AS measured_at, metric_code, value
-            FROM measurements
-            ORDER BY astronaut_id, metric_code, measured_at
+            """
+            SELECT i.name AS astronaut_id, m.measured_at, m.metric_code, m.value
+            FROM measurements AS m
+                     JOIN information AS i ON i.astronaut_id = m.astronaut_id
+            ORDER BY m.astronaut_id, m.metric_code, m.measured_at
             """,
             connection,
         )
