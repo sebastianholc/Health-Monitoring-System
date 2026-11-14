@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
 
-from tabs import overview, plots, measurments, assistant, gym
+from tabs import overview, plots, measurments, assistant
 from astronaut import load_astronauts
 
 
@@ -33,7 +33,6 @@ pages = {
     "Plots": plots.plots,
     "Measurments": measurments.measurments,
     "Assistant": assistant.assistant,
-    "Gym": gym.gym
 }
 
 pages_names = list(pages.keys())
