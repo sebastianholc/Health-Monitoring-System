@@ -1,6 +1,10 @@
-from datetime import datetime
+import sqlite3
+from contextlib import closing
+from datetime import date, datetime
+from pathlib import Path
 
 
+DEFAULT_DB = Path(__file__).with_name("astronaut_health_demo.db")
 class Astronaut:
     id = 0
     name = "Astronaut"
