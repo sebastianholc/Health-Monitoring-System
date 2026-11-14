@@ -48,18 +48,14 @@ def overview(astronaut):
     col3.metric("Temperature", f'{astronaut.temperature} °C')
 
 
-def vitals(astronaut):
-    st.title("Vital Signs")
-    st.write("Detailed vital signs analysis")
 
-
-def activity(astronaut):
+def plots(astronaut):
     st.title("Activity")
     st.write("Activity monitoring")
     st.write("kd")
 
 
-def recovery(astronaut):
+def measurments(astronaut):
     st.title("Recovery")
     st.write("Recovery monitoring")
 
@@ -68,13 +64,16 @@ def assistant(astronaut):
     st.title("Health Assistant")
     st.write("AI Health Assistant")
 
+def gym(astronaut):
+        st.title("Astro Gym")
+
 
 pages = {
     "Overview": overview,
-    "Vitals": vitals,
-    "Activity": activity,
-    "Recovery": recovery,
-    "Assistant": assistant
+    "Plots": plots,
+    "Measurments": measurments,
+    "Assistant": assistant,
+    "Gym": gym
 }
 
 pages_names = list(pages.keys())
