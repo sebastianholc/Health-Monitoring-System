@@ -4,7 +4,7 @@ from streamlit_option_menu import option_menu
 from tabs import overview, plots, measurments, assistant, gym
 from astronaut import Astronaut
 
-from astronaut_health_charts import render_health_charts
+
 
 # ==========================================
 # PAGE CONFIGURATION
