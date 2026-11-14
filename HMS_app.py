@@ -1,6 +1,7 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
 
+from tabs import overview, plots, measurments, assistant, gym
 from astronaut import Astronaut
 
 from astronaut_health_charts import render_health_charts
@@ -40,40 +41,12 @@ astronauts_names = list(astronauts.keys())
 # PAGES
 # ==========================================
 
-def overview(astronaut):
-    st.title("Health Overview")
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("Heart Rate", f'{astronaut.heart_rate} BPM')
-    col2.metric("SpO2", f'{astronaut.spo2}%')
-    col3.metric("Temperature", f'{astronaut.temperature} °C')
-
-
-
-def plots(astronaut):
-    render_health_charts()
-
-
-def measurments(astronaut):
-    st.title("Recovery")
-    st.write("Recovery monitoring")
-
-
-def assistant(astronaut):
-    st.title("Health Assistant")
-    st.write("AI Health Assistant")
-
-def gym(astronaut):
-        st.title("Astro Gym")
-
-
 pages = {
-    "Overview": overview,
-    "Plots": plots,
-    "Measurments": measurments,
-    "Assistant": assistant,
-    "Gym": gym
+    "Overview": overview.overview,
+    "Plots": plots.plots,
+    "Measurments": measurments.measurments,
+    "Assistant": assistant.assistant,
+    "Gym": gym.gym
 }
 
 pages_names = list(pages.keys())
