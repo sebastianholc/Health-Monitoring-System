@@ -1,5 +1,3 @@
-from html import escape
-
 import streamlit as st
 
 def overview(astronaut):
@@ -257,30 +255,14 @@ def overview(astronaut):
 """
     st.markdown(overview_css, unsafe_allow_html=True)
 
-    name_parts = astronaut.name.split(maxsplit=1)
-    first_name = escape(name_parts[0]) if name_parts else "N/A"
-    surname = escape(name_parts[1]) if len(name_parts) > 1 else "N/A"
-    astronaut_id = escape(str(astronaut.id)) if astronaut.id is not None else "N/A"
-    gender = escape(astronaut.gender or "N/A")
-    date_of_birth = escape(astronaut.date_of_birth or "N/A")
-    age = astronaut.age()
-    age_html = f'{age}<span class="param-unit">yrs</span>' if age is not None else "N/A"
+    name_parts = astronaut.name.split(" ", 1)
+    first_name = name_parts[0]
+    surname = name_parts[1] if len(name_parts) > 1 else "N/A"
 
+    mock_gender = "Male"
+    mock_age = astronaut.age()
     mock_weight = 78.4
     mock_height = 182
-    temperature = "N/A" if astronaut.temperature is None else (
-        f'{astronaut.temperature:.2f}<span class="param-unit">°C</span>'
-        if astronaut.temperature is not None else "N/A"
-    )
-    heart_rate = "N/A" if astronaut.heart_rate is None else (
-        f'{astronaut.heart_rate:g}<span class="param-unit">BPM</span>'
-        if astronaut.heart_rate is not None else "N/A"
-    )
-    spo2 = "N/A" if astronaut.spo2 is None else (
-        f'{astronaut.spo2:g}<span class="param-unit">%</span>'
-        if astronaut.spo2 is not None else "N/A"
-    )
-
     mock_sleep_score = 64
     mock_next_test_countdown = "02d 14h 30m"
     mock_next_test_name = "ECG & VO2 Max Screening"
@@ -342,26 +324,18 @@ def overview(astronaut):
 </div>
 <div class="param-item">
 <div class="param-label">Gender</div>
-<div class="param-value">{gender}</div>
+<div class="param-value">{mock_gender}</div>
 </div>
 <div class="param-item">
 <div class="param-label">Age</div>
-<div class="param-value">{age_html}</div>
+<div class="param-value">{mock_age}<span class="param-unit">yrs</span></div>
 </div>
 <div class="param-item">
-<div class="param-label">Astronaut ID</div>
-<div class="param-value">{astronaut_id}</div>
-</div>
-<div class="param-item">
-<div class="param-label">Date of Birth</div>
-<div class="param-value">{date_of_birth}</div>
-</div>
-<div class="param-item">
-<div class="param-label">Weight (demo)</div>
+<div class="param-label">Weight</div>
 <div class="param-value">{mock_weight}<span class="param-unit">kg</span></div>
 </div>
 <div class="param-item">
-<div class="param-label">Height (demo)</div>
+<div class="param-label">Height</div>
 <div class="param-value">{mock_height}<span class="param-unit">cm</span></div>
 </div>
 </div>
@@ -375,15 +349,15 @@ def overview(astronaut):
 <div class="basic-params-list">
 <div class="param-row">
 <span class="param-label">Temperature</span>
-<span class="param-value">{temperature}</span>
+<span class="param-value">{astronaut.temperature}<span class="param-unit">°C</span></span>
 </div>
 <div class="param-row">
 <span class="param-label">Heart Rate</span>
-<span class="param-value">{heart_rate}</span>
+<span class="param-value">{astronaut.heart_rate}<span class="param-unit">BPM</span></span>
 </div>
 <div class="param-row">
 <span class="param-label">Saturation</span>
-<span class="param-value">{spo2}</span>
+<span class="param-value">{astronaut.spo2}<span class="param-unit">%</span></span>
 </div>
 </div>
 </div>
