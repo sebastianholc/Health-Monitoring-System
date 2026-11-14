@@ -9,6 +9,7 @@ from plotly.colors import qualitative
 
 
 DEFAULT_CSV = Path(__file__).with_name("astronaut_health_demo.csv")
+NASA_RED = "#E4002B"
 
 # Each entry defines the axis unit and the series for one chart.
 PARAMETERS = {
@@ -80,9 +81,22 @@ def render_health_charts(
     )
     selected_astronauts = []
     with crew_control.popover("Astronauts"):
-        for person in astronauts:
-            if st.checkbox(person, value=True, key=f"{key_prefix}_crew_{person}"):
-                selected_astronauts.append(person)
+        st.html(f"""
+            <style>
+            [class*="st-key-crew_checkbox_colors_"] [data-testid="stCheckbox"]
+                label[data-selected]:not([data-disabled]) > div:has(> svg),
+            [class*="st-key-crew_checkbox_colors_"] [data-testid="stCheckbox"]
+                label[data-baseweb="checkbox"]:has(input:checked:not(:disabled))
+                > div:first-child {{
+                background-color: {NASA_RED} !important;
+                border-color: {NASA_RED} !important;
+            }}
+            </style>
+        """)
+        with st.container(key=f"crew_checkbox_colors_{key_prefix}"):
+            for person in astronauts:
+                if st.checkbox(person, value=True, key=f"{key_prefix}_crew_{person}"):
+                    selected_astronauts.append(person)
 
     if not selected_astronauts:
         st.info("Select at least one astronaut to display the chart.")
