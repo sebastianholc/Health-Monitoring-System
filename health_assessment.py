@@ -2,7 +2,7 @@
 
 import sqlite3
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from math import isfinite
 from pathlib import Path
@@ -23,15 +23,15 @@ class Rule:
 
 # Demo settings chosen for the synthetic data and its sampling intervals.
 RULES = {
-    "heart_rate_bpm": Rule("Heart rate", "bpm", 48, 105, 5, "Check activity context and review the trend."),
-    "spo2_pct": Rule("SpO₂", "%", 95, 100, 15, "Verify the sensor reading and review the trend."),
-    "temperature_c": Rule("Temperature", "°C", 36, 37.6, 120, "Verify the reading and check recent activity."),
-    "systolic_mmhg": Rule("Systolic pressure", "mmHg", 95, 135, 120, "Review the paired blood pressure readings."),
-    "diastolic_mmhg": Rule("Diastolic pressure", "mmHg", 60, 88, 120, "Review the paired blood pressure readings."),
-    "glucose_mg_dl": Rule("Blood glucose", "mg/dL", 75, 105, 1500, "Review timing relative to meals and activity."),
-    "hrv_rmssd_ms": Rule("HRV", "ms", 46, 90, 300, "Compare against the astronaut's own recovery trend.", "medium"),
-    "sleep_hours": Rule("Sleep duration", "h", 7, 9, 1500, "Review recent sleep duration and schedule.", "medium"),
-    "fluid_intake_l": Rule("Fluid intake", "L/day", 2.25, 3.2, 1500, "Review the daily intake log.", "medium"),
+    "heart_rate_bpm": Rule("Heart rate", "bpm", 48, 105, 120, "Review the activity context."),
+    "spo2_pct": Rule("SpO₂", "%", 94.5, 100, 120, "Verify the sensor reading."),
+    "temperature_c": Rule("Temperature", "°C", 36, 37.6, 14 * 1440, "Review the latest recorded check."),
+    "systolic_mmhg": Rule("Systolic pressure", "mmHg", 95, 140, 14 * 1440, "Review the paired pressure readings."),
+    "diastolic_mmhg": Rule("Diastolic pressure", "mmHg", 60, 90, 14 * 1440, "Review the paired pressure readings."),
+    "glucose_mg_dl": Rule("Blood glucose", "mg/dL", 75, 110, 31 * 1440, "Review the baseline lab entry."),
+    "hrv_rmssd_ms": Rule("HRV", "ms", 30, 90, 1500, "Review the recorded recovery trend.", "medium"),
+    "sleep_score": Rule("Sleep score", "/ 100", 75, 100, 1500, "Review the sleep log and recent scores.", "medium"),
+    "fluid_intake_l": Rule("Fluid intake", "L/day", 2.2, 3.2, 1500, "Review the daily intake log.", "medium"),
 }
 
 
@@ -47,10 +47,11 @@ class Assessment:
     mission_time: str | None
     findings: tuple[Finding, ...]
     checked_count: int
+    latest_values: dict[str, float] = field(default_factory=dict)
 
     @property
     def is_go(self) -> bool:
-        return self.checked_count == len(RULES) and not self.findings
+        return self.checked_count == len(RULES) and all(item.priority == "medium" for item in self.findings)
 
 
 def assess_health(astronaut_id: str | None, database_path: Path = DEFAULT_DB) -> Assessment:
@@ -72,7 +73,7 @@ def assess_health(astronaut_id: str | None, database_path: Path = DEFAULT_DB) ->
               )
         """, (astronaut_id,)).fetchall()
 
-    latest = {code: (timestamp, value) for code, timestamp, value in rows if code in RULES}
+    latest = {code: (timestamp, value) for code, timestamp, value in rows}
     if not latest:
         return Assessment(None, (Finding("Missing telemetry", "high", "Check the crew ID and available measurements."),), 0)
 
@@ -105,4 +106,8 @@ def assess_health(astronaut_id: str | None, database_path: Path = DEFAULT_DB) ->
             ))
 
     findings.sort(key=lambda item: item.priority != "high")
-    return Assessment(mission_time, tuple(findings), checked)
+    latest_values = {
+        code: value for code, (_, value) in latest.items()
+        if isinstance(value, (int, float)) and isfinite(value)
+    }
+    return Assessment(mission_time, tuple(findings), checked, latest_values)

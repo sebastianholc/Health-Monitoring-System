@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 
 from tabs import overview, plots, measurments, assistant, gym
-from astronaut import Astronaut
+from astronaut import load_astronauts
 
 
 
@@ -22,21 +22,8 @@ st.set_page_config(
 # ASTRONAUT DATA
 # ==========================================
 
-
-astronaut_1 = Astronaut("Sebastian Holc",68,98,36.7)
-astronaut_2 = Astronaut("Igor Zabłocki",75,97,36.5)
-astronaut_3 = Astronaut("Adam Guziałek",62,99,36.8)
-
-# Dictionary: astronaut name -> Astronaut object
-astronauts = {
-    astronaut_1.name: astronaut_1,
-    astronaut_2.name: astronaut_2,
-    astronaut_3.name: astronaut_3
-}
-
-astronauts_names = list(astronauts.keys())
-
-
+astronauts = {person.name: person for person in load_astronauts()}
+astronauts_names = list(astronauts)
 # ==========================================
 # PAGES
 # ==========================================

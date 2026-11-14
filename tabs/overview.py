@@ -267,25 +267,6 @@ def overview(astronaut):
     age = astronaut.age()
     age_html = f'{age}<span class="param-unit">yrs</span>' if age is not None else "N/A"
 
-    mock_weight = 78.4
-    mock_height = 182
-    temperature = "N/A" if astronaut.temperature is None else (
-        f'{astronaut.temperature:.2f}<span class="param-unit">°C</span>'
-        if astronaut.temperature is not None else "N/A"
-    )
-    heart_rate = "N/A" if astronaut.heart_rate is None else (
-        f'{astronaut.heart_rate:g}<span class="param-unit">BPM</span>'
-        if astronaut.heart_rate is not None else "N/A"
-    )
-    spo2 = "N/A" if astronaut.spo2 is None else (
-        f'{astronaut.spo2:g}<span class="param-unit">%</span>'
-        if astronaut.spo2 is not None else "N/A"
-    )
-
-    mock_sleep_score = 64
-    mock_next_test_countdown = "02d 14h 30m"
-    mock_next_test_name = "ECG & VO2 Max Screening"
-
     try:
         assessment = assess_health(astronaut.id)
     except (sqlite3.Error, ValueError):
@@ -295,11 +276,25 @@ def overview(astronaut):
             0,
         )
 
+    def measurement(code, unit, spec="g"):
+        value = assessment.latest_values.get(code)
+        if value is None:
+            return "N/A"
+        return f'{value:{spec}}<span class="param-unit">{unit}</span>'
+
+    mass = measurement("body_mass_kg", "kg")
+    height = measurement("height_cm", "cm")
+    temperature = measurement("temperature_c", "°C", ".2f")
+    heart_rate = measurement("heart_rate_bpm", "BPM")
+    spo2 = measurement("spo2_pct", "%")
+    sleep_score = measurement("sleep_score", "/ 100")
+    sleep_progress = max(0, min(100, assessment.latest_values.get("sleep_score", 0)))
+
     status_text = "GO" if assessment.is_go else "NO GO"
     status_class = "status-badge-go" if assessment.is_go else "status-badge-nogo"
     card_alert_class = "" if assessment.is_go else "nasa-card-alert"
     status_detail = (
-        "All configured demo checks passed."
+        ("Review the monitoring notes." if assessment.findings else "All configured demo checks passed.")
         if assessment.is_go else "Review the findings before proceeding in the demo."
     )
     mission_time = escape(assessment.mission_time or "Unavailable")
@@ -349,12 +344,12 @@ def overview(astronaut):
 <div class="param-value">{age_html}</div>
 </div>
 <div class="param-item">
-<div class="param-label">Weight (demo)</div>
-<div class="param-value">{mock_weight}<span class="param-unit">kg</span></div>
+<div class="param-label">Weight</div>
+<div class="param-value">{mass}</div>
 </div>
 <div class="param-item">
-<div class="param-label">Height (demo)</div>
-<div class="param-value">{mock_height}<span class="param-unit">cm</span></div>
+<div class="param-label">Height</div>
+<div class="param-value">{height}</div>
 </div>
 </div>
 </div>
@@ -415,12 +410,12 @@ def overview(astronaut):
 <div>
 <div style="display: flex; justify-content: space-between; align-items: baseline;">
 <div class="param-value" style="font-size: 25px;">
-{mock_sleep_score}<span class="param-unit" style="font-size: 14px;">/ 100</span>
+{sleep_score}
 </div>
-<p class="sub-note">Duration: 6h 15m • REM 15% • Deep 12%</p>
+
 </div>
 <div class="progress-track">
-<div class="progress-fill" style="width: {mock_sleep_score}%;"></div>
+<div class="progress-fill" style="width: {sleep_progress}%;"></div>
 </div>
 </div>
 </div>
@@ -430,14 +425,14 @@ def overview(astronaut):
 </div>
 <div style="display: flex; justify-content: space-between; align-items: center;">
 <div class="param-value" style="font-size: 23px; color: #60A5FA;">
-{mock_next_test_countdown}
+N/A
 </div>
 <div style="text-align: right;">
 <p class="sub-note" style="color: #F8FAFC; font-weight: 600;">
-{mock_next_test_name}
+No schedule in this dataset
 </p>
 <p class="sub-note" style="margin-top: 2px;">
-Med-Bay Module B • 08:00 UTC
+
 </p>
 </div>
 </div>
