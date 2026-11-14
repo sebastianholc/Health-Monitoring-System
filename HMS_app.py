@@ -1,7 +1,7 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
 
-from tabs import overview, plots, measurments, assistant, gym
+from tabs import overview, plots, measurments, assistant
 from astronaut import load_astronauts
 
 
@@ -31,9 +31,8 @@ astronauts_names = list(astronauts)
 pages = {
     "Overview": overview.overview,
     "Plots": plots.plots,
-    "Measurments": measurments.measurments,
-    "Assistant": assistant.assistant,
-    "Gym": gym.gym
+    "Testing & Activities": measurments.measurments,
+    "Assistant": assistant.assistant
 }
 
 pages_names = list(pages.keys())
@@ -179,10 +178,9 @@ def sidebar():
             options=pages_names,
             icons=[
                 "grid",
-                "heart-pulse",
+                "graph-up",
                 "activity",
-                "moon",
-                "brain"
+                "clipboard2-pulse"
             ],
             menu_icon=" ",
             default_index=0,
