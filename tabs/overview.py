@@ -1,10 +1,44 @@
 import sqlite3
+from contextlib import closing
+from datetime import datetime, timezone
 from html import escape
 
 import streamlit as st
 
+from astronaut import DEFAULT_DB
 from health_assessment import Assessment, Finding, RULES, assess_health
 
+SCHEDULE_DB = DEFAULT_DB.with_name("astronaut_health_demo_30d.db")
+
+
+def next_test(astronaut_id, now):
+    """Find the next scheduled test and format the time remaining in UTC."""
+    uri = SCHEDULE_DB.resolve().as_uri() + "?mode=ro"
+    try:
+        with closing(sqlite3.connect(uri, uri=True)) as connection:
+            row = connection.execute("""
+                SELECT name, scheduled_at_utc
+                FROM medical_tests
+                WHERE astronaut_id = ? AND scheduled_at_utc > ?
+                ORDER BY scheduled_at_utc, test_id
+                LIMIT 1
+            """, (astronaut_id, now.strftime("%Y-%m-%d %H:%M:%S"))).fetchone()
+        if row is None:
+            return "N/A", "No upcoming tests", ""
+
+        name, scheduled_at = row
+        scheduled = datetime.fromisoformat(scheduled_at).replace(tzinfo=timezone.utc)
+    except (sqlite3.Error, ValueError):
+        return "N/A", "Schedule unavailable", ""
+
+    total_minutes = int((scheduled - now).total_seconds() // 60)
+    days, remaining = divmod(total_minutes, 1440)
+    hours, minutes = divmod(remaining, 60)
+    countdown = f"{days:02d}d {hours:02d}h {minutes:02d}m" if total_minutes else "< 1 min"
+    return countdown, name, scheduled.strftime("%Y-%m-%d %H:%M UTC")
+
+
+@st.fragment(run_every="60s")
 def overview(astronaut):
     overview_css = """
 <style>
@@ -135,9 +169,16 @@ def overview(astronaut):
     flex-direction: column;
     gap: 10px;
     flex: 1;
-    justify-content: space-between;
+    justify-content: flex-start;
+    max-height: 220px;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #111625;
+    padding-right: 4px;
 }
 .ai-focus-item {
+    flex-shrink: 0;
     background-color: #080B10;
     border: 1px solid #1E293B;
     border-left: 3px solid #0032A0;
@@ -248,7 +289,6 @@ def overview(astronaut):
 }
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #0032A0 0%, #2563EB 100%);
     border-radius: 4px;
 }
 .sub-note {
@@ -268,7 +308,7 @@ def overview(astronaut):
     age_html = f'{age}<span class="param-unit">yrs</span>' if age is not None else "N/A"
 
     try:
-        assessment = assess_health(astronaut.id)
+        assessment = assess_health(astronaut.id, SCHEDULE_DB)
     except (sqlite3.Error, ValueError):
         assessment = Assessment(
             None,
@@ -289,6 +329,11 @@ def overview(astronaut):
     spo2 = measurement("spo2_pct", "%")
     sleep_score = measurement("sleep_score", "/ 100")
     sleep_progress = max(0, min(100, assessment.latest_values.get("sleep_score", 0)))
+    sleep_hue = (
+        0.9 * sleep_progress if sleep_progress <= 50
+        else 45 + 2 * (sleep_progress - 50)
+    )
+    sleep_color = f"hsl({sleep_hue:.1f}, 80%, 46%)"
 
     status_text = "GO" if assessment.is_go else "NO GO"
     status_class = "status-badge-go" if assessment.is_go else "status-badge-nogo"
@@ -310,6 +355,8 @@ def overview(astronaut):
         f'</div>'
         for item in assessment.findings
     ) or '<p class="sub-note">No findings under the configured demo rules.</p>'
+
+    countdown, test_name, test_time = next_test(astronaut.id, datetime.now(timezone.utc))
 
     dashboard_html = f"""
 <div class="overview-grid">
@@ -415,7 +462,7 @@ def overview(astronaut):
 
 </div>
 <div class="progress-track">
-<div class="progress-fill" style="width: {sleep_progress}%;"></div>
+<div class="progress-fill" style="width: {sleep_progress}%; background-color: {sleep_color};"></div>
 </div>
 </div>
 </div>
@@ -425,14 +472,14 @@ def overview(astronaut):
 </div>
 <div style="display: flex; justify-content: space-between; align-items: center;">
 <div class="param-value" style="font-size: 23px; color: #60A5FA;">
-N/A
+{escape(countdown)}
 </div>
 <div style="text-align: right;">
 <p class="sub-note" style="color: #F8FAFC; font-weight: 600;">
-No schedule in this dataset
+{escape(test_name)}
 </p>
 <p class="sub-note" style="margin-top: 2px;">
-
+{escape(test_time)}
 </p>
 </div>
 </div>
