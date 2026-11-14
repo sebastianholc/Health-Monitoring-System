@@ -34,18 +34,12 @@ def load_database_measurements(database_path: Path) -> pd.DataFrame:
     database_uri = database_path.resolve().as_uri() + "?mode=ro"
 
     with closing(sqlite3.connect(database_uri, uri=True)) as connection:
-        columns = {
-            row[1]
-            for row in connection.execute("PRAGMA table_info(measurements)")
-        }
-        # Starsza baza demonstracyjna miała kolumnę date.
-        time_column = "measured_at" if "measured_at" in columns else "date"
-
         readings = pd.read_sql_query(
             """
-            SELECT i.name AS astronaut_id, m.measured_at, m.metric_code, m.value
+            SELECT m.astronaut_id, i.name AS astronaut_name,
+                   m.measured_at, m.metric_code, m.value
             FROM measurements AS m
-                     JOIN information AS i ON i.astronaut_id = m.astronaut_id
+            JOIN information AS i ON i.astronaut_id = m.astronaut_id
             ORDER BY m.astronaut_id, m.metric_code, m.measured_at
             """,
             connection,
@@ -179,10 +173,6 @@ def plots(astronaut) -> None:
         </style>
     """)
 
-    # Nawigacja przekazuje astronautę z górnego paska.
-    # Do porównania na wykresie służą checkboxy poniżej.
-
-
     try:
         data = load_database_measurements(DEFAULT_DB)
     except (OSError, ValueError, sqlite3.Error, pd.errors.DatabaseError) as error:
@@ -193,7 +183,21 @@ def plots(astronaut) -> None:
         st.info("No measurements available.")
         return
 
-    astronauts = data["astronaut_id"].unique().tolist()
+    astronaut_names = (
+        data[["astronaut_id", "astronaut_name"]]
+        .drop_duplicates(subset="astronaut_id")
+        .set_index("astronaut_id")["astronaut_name"]
+        .to_dict()
+    )
+    active_id = getattr(astronaut, "id", None)
+    if active_id not in astronaut_names:
+        active_name = getattr(astronaut, "name", None)
+        matches = [
+            astronaut_id
+            for astronaut_id, name in astronaut_names.items()
+            if name == active_name
+        ]
+        active_id = matches[0] if len(matches) == 1 else None
 
     with st.container(key="plots_controls_card"):
         parameter_control, crew_control = st.columns(2, gap="medium")
@@ -213,14 +217,14 @@ def plots(astronaut) -> None:
         selected_astronauts = []
         with crew_control:
             st.markdown(
-                '<div class="nasa-control-label">Crew Selection</div>',
+                '<div class="nasa-control-label">Compare To</div>',
                 unsafe_allow_html=True,
             )
             with st.popover("Astronauts", use_container_width=True):
                 with st.container(key="plots_crew"):
-                    for person in astronauts:
-                        if st.checkbox(person, value=True, key=f"plots_crew_{person}"):
-                            selected_astronauts.append(person)
+                    for astronaut_id, name in astronaut_names.items():
+                        if st.checkbox(name, value=True, key=f"plots_crew_{astronaut_id}"):
+                            selected_astronauts.append(astronaut_id)
 
     if not selected_astronauts:
         st.info("Select at least one astronaut to display the chart.")
@@ -229,14 +233,15 @@ def plots(astronaut) -> None:
     unit, series = PARAMETERS[parameter]
     palette = qualitative.Alphabet
     colors = {
-        person: palette[index % len(palette)]
-        for index, person in enumerate(astronauts)
+        astronaut_id: palette[index % len(palette)]
+        for index, astronaut_id in enumerate(astronaut_names)
     }
 
     figure = go.Figure()
 
-    for person in selected_astronauts:
-        measurements = data.loc[data["astronaut_id"] == person]
+    for astronaut_id in selected_astronauts:
+        name = astronaut_names[astronaut_id]
+        measurements = data.loc[data["astronaut_id"] == astronaut_id]
 
         for index, (metric_code, label) in enumerate(series):
             observations = measurements.loc[
@@ -248,11 +253,12 @@ def plots(astronaut) -> None:
             figure.add_scatter(
                 x=observations["measured_at"].tolist(),
                 y=observations["value"].tolist(),
-                name=f"{person} · {label}" if len(series) > 1 else person,
+                name=f"{name} · {label}" if len(series) > 1 else name,
                 mode="lines+markers",
                 line={
-                    "color": colors[person],
+                    "color": colors[astronaut_id],
                     "dash": "solid" if index == 0 else "dash",
+                    "width": 4 if astronaut_id == active_id else 2,
                 },
                 hovertemplate=f"%{{y:.2f}} {unit}",
             )
