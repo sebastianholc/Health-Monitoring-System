@@ -3,6 +3,8 @@ from streamlit_option_menu import option_menu
 
 from astronaut import Astronaut
 
+from astronaut_health_charts import render_health_charts
+
 # ==========================================
 # PAGE CONFIGURATION
 # ==========================================
@@ -50,9 +52,7 @@ def overview(astronaut):
 
 
 def plots(astronaut):
-    st.title("Activity")
-    st.write("Activity monitoring")
-    st.write("kd")
+    render_health_charts()
 
 
 def measurments(astronaut):
