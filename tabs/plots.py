@@ -12,6 +12,7 @@ from plotly.colors import qualitative
 
 DEFAULT_DB = Path(__file__).resolve().parents[1] / "astronaut_health_demo.db"
 NASA_RED = "#E4002B"
+NASA_BLUE = "#0032A0"
 
 # Nazwa w menu, jednostka osi Y i serie odczytywane z bazy.
 PARAMETERS = {
@@ -57,10 +58,130 @@ def load_database_measurements(database_path: Path) -> pd.DataFrame:
 
 
 def plots(astronaut) -> None:
+    st.html(f"""
+        <style>
+        [data-testid="stMainBlockContainer"] {{
+            padding-bottom: 1rem !important;
+        }}
+
+        /* Nagłówek i podtytuł strony */
+        [data-testid="stMain"] h2 {{
+            color: #F8FAFC !important;
+            font-size: 20px !important;
+            font-weight: 700 !important;
+            letter-spacing: 1px !important;
+            text-transform: uppercase !important;
+            margin-bottom: 0.15rem !important;
+        }}
+
+        [data-testid="stMain"] [data-testid="stCaptionContainer"] p {{
+            color: #94A3B8 !important;
+            font-size: 12.5px !important;
+            margin-bottom: 0.75rem !important;
+        }}
+
+        /* Karty w stylu NASA Mission Control (jak w overview) */
+        .st-key-plots_controls_card,
+        .st-key-plots_chart_card {{
+            background-color: #111625 !important;
+            border: 1px solid #1E293B !important;
+            border-top: 3px solid {NASA_BLUE} !important;
+            border-radius: 8px !important;
+            padding: 16px 20px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45) !important;
+        }}
+
+        .st-key-plots_chart_card {{
+            padding-bottom: 10px !important;
+        }}
+
+        /* Etykiety nad selektorami */
+        .nasa-control-label {{
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #64748B;
+            margin-bottom: 6px;
+        }}
+
+        /* Wyrównanie obu selektorów na identycznej wysokości */
+        .st-key-plots_controls_card [data-testid="stHorizontalBlock"] {{
+            align-items: end !important;
+        }}
+
+        .st-key-plots_controls_card [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+        .st-key-plots_controls_card [data-testid="stPopover"] > button {{
+            background-color: #080B10 !important;
+            border: 1px solid #1E293B !important;
+            border-radius: 6px !important;
+            color: #F8FAFC !important;
+            min-height: 42px !important;
+            height: 42px !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            transition: border-color 0.2s ease !important;
+        }}
+
+        .st-key-plots_controls_card [data-testid="stSelectbox"] [data-baseweb="select"] > div:hover,
+        .st-key-plots_controls_card [data-testid="stPopover"] > button:hover {{
+            border-color: #60A5FA !important;
+        }}
+
+        .st-key-plots_controls_card [data-testid="stSelectbox"] svg,
+        .st-key-plots_controls_card [data-testid="stPopover"] svg {{
+            fill: #94A3B8 !important;
+            color: #94A3B8 !important;
+        }}
+
+        .st-key-plots_controls_card [data-testid="stPopover"] > button {{
+            justify-content: space-between !important;
+            padding: 0 14px !important;
+        }}
+
+        /* Rozwijane menu selectboxa i okno popovera */
+        [data-baseweb="popover"] > div,
+        [data-baseweb="menu"],
+        [data-testid="stPopoverBody"] {{
+            background-color: #111625 !important;
+            border: 1px solid #1E293B !important;
+            border-radius: 6px !important;
+            color: #F8FAFC !important;
+        }}
+
+        [data-baseweb="menu"] li {{
+            background-color: #111625 !important;
+            color: #CBD5E1 !important;
+        }}
+
+        [data-baseweb="menu"] li:hover,
+        [data-baseweb="menu"] li[aria-selected="true"] {{
+            background-color: #080B10 !important;
+            color: #FFFFFF !important;
+        }}
+
+        /* Checkboxy astronautów w kolorze NASA Red */
+        .st-key-plots_crew [data-testid="stCheckbox"] label p {{
+            color: #F8FAFC !important;
+            font-size: 13.5px !important;
+        }}
+
+        .st-key-plots_crew [data-testid="stCheckbox"]
+            label[data-selected]:not([data-disabled]) > div:has(> svg),
+        .st-key-plots_crew [data-testid="stCheckbox"]
+            label[data-baseweb="checkbox"]:has(input:checked:not(:disabled))
+            > div:first-child {{
+            background-color: {NASA_RED} !important;
+            border-color: {NASA_RED} !important;
+        }}
+        </style>
+    """)
+
     # Nawigacja przekazuje astronautę z górnego paska.
     # Do porównania na wykresie służą checkboxy poniżej.
-    st.header("Astronaut health trends")
-    st.caption("Synthetic demo data · Hydration is shown as daily fluid intake.")
+
 
     try:
         data = load_database_measurements(DEFAULT_DB)
@@ -73,33 +194,33 @@ def plots(astronaut) -> None:
         return
 
     astronauts = data["astronaut_id"].unique().tolist()
-    parameter_control, crew_control = st.columns(2)
 
-    parameter = parameter_control.selectbox(
-        "Parameter",
-        list(PARAMETERS),
-        key="astronaut_health_parameter",
-    )
+    with st.container(key="plots_controls_card"):
+        parameter_control, crew_control = st.columns(2, gap="medium")
 
-    selected_astronauts = []
-    with crew_control.popover("Astronauts"):
-        st.html(f"""
-            <style>
-            .st-key-plots_crew [data-testid="stCheckbox"]
-                label[data-selected]:not([data-disabled]) > div:has(> svg),
-            .st-key-plots_crew [data-testid="stCheckbox"]
-                label[data-baseweb="checkbox"]:has(input:checked:not(:disabled))
-                > div:first-child {{
-                background-color: {NASA_RED} !important;
-                border-color: {NASA_RED} !important;
-            }}
-            </style>
-        """)
+        with parameter_control:
+            st.markdown(
+                '<div class="nasa-control-label">Parameter</div>',
+                unsafe_allow_html=True,
+            )
+            parameter = st.selectbox(
+                "Parameter",
+                list(PARAMETERS),
+                key="astronaut_health_parameter",
+                label_visibility="collapsed",
+            )
 
-        with st.container(key="plots_crew"):
-            for person in astronauts:
-                if st.checkbox(person, value=True, key=f"plots_crew_{person}"):
-                    selected_astronauts.append(person)
+        selected_astronauts = []
+        with crew_control:
+            st.markdown(
+                '<div class="nasa-control-label">Crew Selection</div>',
+                unsafe_allow_html=True,
+            )
+            with st.popover("Astronauts", use_container_width=True):
+                with st.container(key="plots_crew"):
+                    for person in astronauts:
+                        if st.checkbox(person, value=True, key=f"plots_crew_{person}"):
+                            selected_astronauts.append(person)
 
     if not selected_astronauts:
         st.info("Select at least one astronaut to display the chart.")
@@ -141,11 +262,44 @@ def plots(astronaut) -> None:
         return
 
     figure.update_layout(
-        title=parameter,
-        xaxis={"title": "Mission time", "hoverformat": "%Y-%m-%d %H:%M"},
-        yaxis_title=unit,
+        title={
+            "text": parameter.upper(),
+            "font": {"size": 12.5, "color": "#94A3B8"},
+            "x": 0,
+            "xanchor": "left",
+        },
+        paper_bgcolor="#111625",
+        plot_bgcolor="#080B10",
+        font={"color": "#CBD5E1"},
+        xaxis={
+            "title": {"text": "Mission time", "font": {"size": 12, "color": "#94A3B8"}},
+            "hoverformat": "%Y-%m-%d %H:%M",
+            "gridcolor": "#1E293B",
+            "linecolor": "#1E293B",
+            "zerolinecolor": "#1E293B",
+            "tickfont": {"color": "#64748B", "size": 11},
+        },
+        yaxis={
+            "title": {"text": unit, "font": {"size": 12, "color": "#94A3B8"}},
+            "gridcolor": "#1E293B",
+            "linecolor": "#1E293B",
+            "zerolinecolor": "#1E293B",
+            "tickfont": {"color": "#64748B", "size": 11},
+        },
         hovermode="x unified",
-        legend={"orientation": "h", "y": -0.24},
-        margin={"b": 96},
+        hoverlabel={
+            "bgcolor": "#080B10",
+            "bordercolor": NASA_BLUE,
+            "font": {"color": "#F8FAFC", "size": 12},
+        },
+        legend={
+            "orientation": "h",
+            "y": -0.24,
+            "font": {"color": "#CBD5E1", "size": 12},
+            "bgcolor": "rgba(0,0,0,0)",
+        },
+        margin={"t": 44, "r": 16, "l": 52, "b": 96},
     )
-    st.plotly_chart(figure, key="astronaut_health_chart")
+
+    with st.container(key="plots_chart_card"):
+        st.plotly_chart(figure, key="astronaut_health_chart", use_container_width=True)
