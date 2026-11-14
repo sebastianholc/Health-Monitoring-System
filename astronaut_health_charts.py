@@ -1,5 +1,7 @@
 """Streamlit charts for astronaut health telemetry."""
 
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pandas as pd
@@ -8,7 +10,7 @@ import streamlit as st
 from plotly.colors import qualitative
 
 
-DEFAULT_CSV = Path(__file__).with_name("astronaut_health_demo.csv")
+DEFAULT_DB = Path(__file__).with_name("astronaut_health_demo.db")
 NASA_RED = "#E4002B"
 
 # Each entry defines the axis unit and the series for one chart.
@@ -27,34 +29,24 @@ PARAMETERS = {
 }
 
 
-def load_measurements(csv_path: str | Path) -> pd.DataFrame:
-    """Read one row per astronaut and measurement date."""
-    data = pd.read_csv(csv_path, dtype={"astronaut_id": "string"})
-    measurement_columns = [
-        column for _, series in PARAMETERS.values() for column, _ in series
-    ]
-    missing = {"astronaut_id", "date", *measurement_columns} - set(data.columns)
-    if missing:
-        raise ValueError(f"Missing CSV columns: {', '.join(sorted(missing))}.")
+def load_database_measurements(database_path: str | Path) -> pd.DataFrame:
+    """Read observations, including dates from older daily demo databases."""
+    database_uri = Path(database_path).resolve().as_uri() + "?mode=ro"
+    with closing(sqlite3.connect(database_uri, uri=True)) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(measurements)")}
+        time_column = "measured_at" if "measured_at" in columns else "date"
+        readings = pd.read_sql_query(
+            f"SELECT astronaut_id, {time_column} AS measured_at, metric_code, value "
+            "FROM measurements ORDER BY astronaut_id, metric_code, measured_at",
+            connection,
+        )
 
-    data["astronaut_id"] = data["astronaut_id"].str.strip()
-    data["date"] = pd.to_datetime(data["date"], format="%Y-%m-%d")
-    if (
-        data[["astronaut_id", "date"]].isna().any().any()
-        or data["astronaut_id"].eq("").any()
-    ):
-        raise ValueError("Every measurement needs an astronaut ID and a date.")
-    if data.duplicated(["astronaut_id", "date"]).any():
-        raise ValueError("Use one row per astronaut and date.")
-
-    for column in measurement_columns:
-        data[column] = pd.to_numeric(data[column], errors="raise")
-
-    return data.sort_values(["astronaut_id", "date"])
+    readings["measured_at"] = pd.to_datetime(readings["measured_at"], format="ISO8601")
+    return readings
 
 
 def render_health_charts(
-    csv_path: str | Path = DEFAULT_CSV,
+    database_path: str | Path = DEFAULT_DB,
     *,
     key_prefix: str = "astronaut_health",
     demo: bool = True,
@@ -65,8 +57,8 @@ def render_health_charts(
         st.caption("Synthetic demo data · Daily fluid intake is shown as a hydration proxy.")
 
     try:
-        data = load_measurements(csv_path)
-    except (OSError, ValueError) as error:
+        data = load_database_measurements(database_path)
+    except (OSError, ValueError, sqlite3.Error, pd.errors.DatabaseError) as error:
         st.error(f"Could not load measurements. {error}")
         return
 
@@ -110,17 +102,14 @@ def render_health_charts(
         for index, person in enumerate(astronauts)
     }
     for person in selected_astronauts:
-        measurements = data.loc[data["astronaut_id"] == person].set_index("date")
-        # Preserve gaps when a day's row or an individual measurement is missing.
-        dates = pd.date_range(measurements.index.min(), measurements.index.max(), freq="D")
-        measurements = measurements.reindex(dates)
+        measurements = data.loc[data["astronaut_id"] == person]
         for index, (column, label) in enumerate(series):
-            values = measurements[column]
-            if values.isna().all():
+            observations = measurements.loc[measurements["metric_code"] == column]
+            if observations.empty:
                 continue
             figure.add_scatter(
-                x=measurements.index.to_pydatetime(),
-                y=values.tolist(),
+                x=observations["measured_at"].tolist(),
+                y=observations["value"].tolist(),
                 name=f"{person} · {label}" if len(series) > 1 else person,
                 mode="lines+markers",
                 line={
@@ -137,7 +126,7 @@ def render_health_charts(
 
     figure.update_layout(
         title=parameter,
-        xaxis_title="Date",
+        xaxis={"title": "Mission time", "hoverformat": "%Y-%m-%d %H:%M"},
         yaxis_title=unit,
         hovermode="x unified",
         legend={"orientation": "h", "y": -0.24},
