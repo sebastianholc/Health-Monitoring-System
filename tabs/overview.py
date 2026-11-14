@@ -1,4 +1,9 @@
+import sqlite3
+from html import escape
+
 import streamlit as st
+
+from health_assessment import Assessment, Finding, RULES, assess_health
 
 def overview(astronaut):
     overview_css = """
@@ -255,48 +260,61 @@ def overview(astronaut):
 """
     st.markdown(overview_css, unsafe_allow_html=True)
 
-    name_parts = astronaut.name.split(" ", 1)
-    first_name = name_parts[0]
-    surname = name_parts[1] if len(name_parts) > 1 else "N/A"
+    name_parts = astronaut.name.split(maxsplit=1)
+    first_name = escape(name_parts[0]) if name_parts else "N/A"
+    surname = escape(name_parts[1]) if len(name_parts) > 1 else "N/A"
+    gender = escape(astronaut.gender or "N/A")
+    age = astronaut.age()
+    age_html = f'{age}<span class="param-unit">yrs</span>' if age is not None else "N/A"
 
-    mock_gender = "Male"
-    mock_age = astronaut.age()
     mock_weight = 78.4
     mock_height = 182
+    temperature = "N/A" if astronaut.temperature is None else (
+        f'{astronaut.temperature:.2f}<span class="param-unit">°C</span>'
+        if astronaut.temperature is not None else "N/A"
+    )
+    heart_rate = "N/A" if astronaut.heart_rate is None else (
+        f'{astronaut.heart_rate:g}<span class="param-unit">BPM</span>'
+        if astronaut.heart_rate is not None else "N/A"
+    )
+    spo2 = "N/A" if astronaut.spo2 is None else (
+        f'{astronaut.spo2:g}<span class="param-unit">%</span>'
+        if astronaut.spo2 is not None else "N/A"
+    )
+
     mock_sleep_score = 64
     mock_next_test_countdown = "02d 14h 30m"
     mock_next_test_name = "ECG & VO2 Max Screening"
 
-    mock_ai_focus = [
-        {
-            "title": "Sleep Recovery & REM Deficit",
-            "priority": "high",
-            "badge": "Action Required",
-            "description": "Deep sleep dropped by 24% over the last 3 cycles. Extend rest window by 45 min before next shift."
-        },
-        {
-            "title": "Wellbeing & Mood Index",
-            "priority": "medium",
-            "badge": "Monitor",
-            "description": "Subjective mood score trending downward (-12%). Schedule behavioral check-in and reduce non-critical load."
-        }
-    ]
+    try:
+        assessment = assess_health(astronaut.id)
+    except (sqlite3.Error, ValueError):
+        assessment = Assessment(
+            None,
+            (Finding("Telemetry unavailable", "high", "Check the SQLite file and sample timestamps."),),
+            0,
+        )
 
-    is_eva_go = True
-    status_text = "GO" if is_eva_go else "NO GO"
-    status_class = "status-badge-go" if is_eva_go else "status-badge-nogo"
-    card_alert_class = "" if is_eva_go else "nasa-card-alert"
+    status_text = "GO" if assessment.is_go else "NO GO"
+    status_class = "status-badge-go" if assessment.is_go else "status-badge-nogo"
+    card_alert_class = "" if assessment.is_go else "nasa-card-alert"
+    status_detail = (
+        "All configured demo checks passed."
+        if assessment.is_go else "Review the findings before proceeding in the demo."
+    )
+    mission_time = escape(assessment.mission_time or "Unavailable")
 
     focus_items_html = "".join(
-        f'<div class="ai-focus-item {"priority-high" if item["priority"] == "high" else "priority-medium"}">'
+        f'<div class="ai-focus-item priority-{item.priority}">'
         f'<div class="ai-focus-top">'
-        f'<span class="ai-focus-title">{item["title"]}</span>'
-        f'<span class="{"ai-badge-high" if item["priority"] == "high" else "ai-badge-medium"}">{item["badge"]}</span>'
+        f'<span class="ai-focus-title">{escape(item.title)}</span>'
+        f'<span class="ai-badge-{item.priority}">'
+        f'{"Review" if item.priority == "high" else "Monitor"}</span>'
         f'</div>'
-        f'<p class="ai-focus-desc">{item["description"]}</p>'
+        f'<p class="ai-focus-desc">{escape(item.description)}</p>'
         f'</div>'
-        for item in mock_ai_focus
-    )
+        for item in assessment.findings
+    ) or '<p class="sub-note">No findings under the configured demo rules.</p>'
 
     dashboard_html = f"""
 <div class="overview-grid">
@@ -324,18 +342,18 @@ def overview(astronaut):
 </div>
 <div class="param-item">
 <div class="param-label">Gender</div>
-<div class="param-value">{mock_gender}</div>
+<div class="param-value">{gender}</div>
 </div>
 <div class="param-item">
 <div class="param-label">Age</div>
-<div class="param-value">{mock_age}<span class="param-unit">yrs</span></div>
+<div class="param-value">{age_html}</div>
 </div>
 <div class="param-item">
-<div class="param-label">Weight</div>
+<div class="param-label">Weight (demo)</div>
 <div class="param-value">{mock_weight}<span class="param-unit">kg</span></div>
 </div>
 <div class="param-item">
-<div class="param-label">Height</div>
+<div class="param-label">Height (demo)</div>
 <div class="param-value">{mock_height}<span class="param-unit">cm</span></div>
 </div>
 </div>
@@ -349,21 +367,21 @@ def overview(astronaut):
 <div class="basic-params-list">
 <div class="param-row">
 <span class="param-label">Temperature</span>
-<span class="param-value">{astronaut.temperature}<span class="param-unit">°C</span></span>
+<span class="param-value">{temperature}</span>
 </div>
 <div class="param-row">
 <span class="param-label">Heart Rate</span>
-<span class="param-value">{astronaut.heart_rate}<span class="param-unit">BPM</span></span>
+<span class="param-value">{heart_rate}</span>
 </div>
 <div class="param-row">
 <span class="param-label">Saturation</span>
-<span class="param-value">{astronaut.spo2}<span class="param-unit">%</span></span>
+<span class="param-value">{spo2}</span>
 </div>
 </div>
 </div>
 <div class="nasa-card">
 <div class="nasa-card-header">
-<span class="nasa-card-title">AI Focus Areas</span>
+<span class="nasa-card-title">Focus Areas</span>
 </div>
 <div class="ai-focus-list">
 {focus_items_html}
@@ -374,21 +392,20 @@ def overview(astronaut):
 <div class="right-col">
 <div class="nasa-card {card_alert_class}">
 <div class="nasa-card-header">
-<span class="nasa-card-title">Space Walk // GO - NO GO</span>
+<span class="nasa-card-title">Space Walk // Demo GO - NO GO</span>
 </div>
 <div class="eva-status-box">
 <div>
 <div class="param-label">Readiness Status</div>
 <div style="font-size: 12.5px; color: #CBD5E1; margin-top: 3px;">
-All primary biometric thresholds nominal
+{status_detail}
 </div>
 </div>
 <div class="{status_class}">{status_text}</div>
 </div>
 <div class="eva-checks">
-<span class="eva-pill">CARDIO: NOMINAL</span>
-<span class="eva-pill">O2 SAT: OPTIMAL</span>
-<span class="eva-pill">THERMAL: STABLE</span>
+<span class="eva-pill">Checked: {assessment.checked_count}/{len(RULES)}</span>
+<span class="eva-pill">Mission time: {mission_time}</span>
 </div>
 </div>
 <div class="nasa-card">
