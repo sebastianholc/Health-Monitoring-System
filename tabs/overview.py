@@ -11,6 +11,28 @@ from health_assessment import Assessment, Finding, RULES, assess_health
 SCHEDULE_DB = DEFAULT_DB.with_name("astronaut_health_demo_30d.db")
 
 
+@st.fragment(run_every="1s")
+def _render_system_time():
+    now = datetime.now(timezone.utc)
+    st.markdown(
+        '<style>[data-testid="stSidebar"] { container-type: inline-size; }</style>'
+        '<div style="position: fixed; left: 0; bottom: 0; z-index: 10; '
+        'width: 100cqw; box-sizing: border-box; padding: 8px 16px 12px; '
+        'text-align: center; background: #111625; border: 0;">'
+        '<div style="font-size: 11px; color: #94A3B8;">SYSTEM TIME</div>'
+        '<div style="color: #F8FAFC; font-variant-numeric: tabular-nums;">'
+        f'{now:%H:%M:%S} <small>UTC</small>'
+        '</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_sidebar_clock():
+    """Render the clock in the shared sidebar before dispatching the page."""
+    with st.sidebar:
+        _render_system_time()
+
+
 def next_test(astronaut_id, now):
     """Find the next scheduled test and format the time remaining in UTC."""
     uri = SCHEDULE_DB.resolve().as_uri() + "?mode=ro"
@@ -76,6 +98,9 @@ def overview(astronaut):
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+}
+.nasa-card-approved {
+    border-top: 3px solid #10B981;
 }
 .nasa-card-alert {
     border-top: 3px solid #E4002B;
@@ -278,18 +303,19 @@ def overview(astronaut):
     padding: 4px 9px;
     border-radius: 4px;
 }
-.progress-track {
-    width: 100%;
-    height: 7px;
-    background-color: #080B10;
-    border-radius: 4px;
-    overflow: hidden;
-    margin: 10px 0 2px 0;
-    border: 1px solid #1E293B;
+.sleep-scale {
+    position: relative;
+    height: 10px;
+    margin: 13px 0 5px;
+    border-radius: 5px;
+    background: #080B10;
 }
-.progress-fill {
-    height: 100%;
-    border-radius: 4px;
+.sleep-scale::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, #E4002B, #F97316 28%, #FACC15 52%, #22C55E);
+    clip-path: inset(0 calc(100% - var(--sleep-score)) 0 0 round 5px);
 }
 .sub-note {
     font-size: 11.5px;
@@ -328,21 +354,16 @@ def overview(astronaut):
     heart_rate = measurement("heart_rate_bpm", "BPM")
     spo2 = measurement("spo2_pct", "%")
     sleep_score = measurement("sleep_score", "/ 100")
-    sleep_progress = max(0, min(100, assessment.latest_values.get("sleep_score", 0)))
-    sleep_hue = (
-        0.9 * sleep_progress if sleep_progress <= 50
-        else 45 + 2 * (sleep_progress - 50)
-    )
-    sleep_color = f"hsl({sleep_hue:.1f}, 80%, 46%)"
+    sleep_value = assessment.latest_values.get("sleep_score")
+    sleep_position = max(0, min(100, sleep_value)) if sleep_value is not None else 0
 
-    status_text = "GO" if assessment.is_go else "NO GO"
+    status_text = "APPROVED" if assessment.is_go else "DENIED"
     status_class = "status-badge-go" if assessment.is_go else "status-badge-nogo"
-    card_alert_class = "" if assessment.is_go else "nasa-card-alert"
+    card_alert_class = "nasa-card-approved" if assessment.is_go else "nasa-card-alert"
     status_detail = (
         ("Review the monitoring notes." if assessment.findings else "All configured demo checks passed.")
         if assessment.is_go else "Review the findings before proceeding in the demo."
     )
-    mission_time = escape(assessment.mission_time or "Unavailable")
 
     focus_items_html = "".join(
         f'<div class="ai-focus-item priority-{item.priority}">'
@@ -404,7 +425,7 @@ def overview(astronaut):
 <div class="left-bottom-row">
 <div class="nasa-card">
 <div class="nasa-card-header">
-<span class="nasa-card-title">Basic Params</span>
+<span class="nasa-card-title">LATEST VITAL SIGNS</span>
 </div>
 <div class="basic-params-list">
 <div class="param-row">
@@ -434,7 +455,7 @@ def overview(astronaut):
 <div class="right-col">
 <div class="nasa-card {card_alert_class}">
 <div class="nasa-card-header">
-<span class="nasa-card-title">Space Walk // Demo GO - NO GO</span>
+<span class="nasa-card-title">READINESS FOR EVA</span>
 </div>
 <div class="eva-status-box">
 <div>
@@ -446,13 +467,12 @@ def overview(astronaut):
 <div class="{status_class}">{status_text}</div>
 </div>
 <div class="eva-checks">
-<span class="eva-pill">Checked: {assessment.checked_count}/{len(RULES)}</span>
-<span class="eva-pill">Mission time: {mission_time}</span>
+<span class="eva-pill">Checked parameters: {assessment.checked_count}/{len(RULES)}</span>
 </div>
 </div>
 <div class="nasa-card">
 <div class="nasa-card-header">
-<span class="nasa-card-title">Last Sleep Score</span>
+<span class="nasa-card-title">LATEST SLEEP SCORE</span>
 </div>
 <div>
 <div style="display: flex; justify-content: space-between; align-items: baseline;">
@@ -461,9 +481,7 @@ def overview(astronaut):
 </div>
 
 </div>
-<div class="progress-track">
-<div class="progress-fill" style="width: {sleep_progress}%; background-color: {sleep_color};"></div>
-</div>
+<div class="sleep-scale" style="--sleep-score: {sleep_position:g}%" aria-hidden="true"></div>
 </div>
 </div>
 <div class="nasa-card">
