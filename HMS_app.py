@@ -31,8 +31,8 @@ astronauts_names = list(astronauts)
 pages = {
     "Overview": overview.overview,
     "Plots": plots.plots,
-    "Measurments": measurments.measurments,
-    "Assistant": assistant.assistant,
+    "Tests & Activities": measurments.measurments,
+    "Medical Assistant": assistant.assistant
 }
 
 pages_names = list(pages.keys())
@@ -178,10 +178,9 @@ def sidebar():
             options=pages_names,
             icons=[
                 "grid",
-                "heart-pulse",
-                "activity",
-                "moon",
-                "brain"
+                "graph-up",
+                "clipboard-data",
+                "robot"
             ],
             menu_icon=" ",
             default_index=0,

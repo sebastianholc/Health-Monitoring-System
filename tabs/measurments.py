@@ -188,7 +188,16 @@ def measurments(astronaut_data):
     measurements_css = f"""
 <style>
 [data-testid="stMainBlockContainer"] {{
+    padding-top: 0.5rem !important;
     padding-bottom: 1rem !important;
+}}
+
+[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:first-child:has(style) {{
+    display: none !important;
+}}
+
+[data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > div {{
+    padding-top: 0 !important;
 }}
 
 /* Neutralizacja dziedziczonych odstępów z HMS_app.py wewnątrz kolumn i kart */
@@ -272,8 +281,9 @@ def measurments(astronaut_data):
     margin-bottom: 8px !important;
 }}
 
-.nasa-note {{
-    font-size: 12.5px !important;
+.nasa-note,
+.nasa-sub-box p {{
+    font-size: 22px !important;
     color: #94A3B8 !important;
     line-height: 1.45 !important;
     margin: 0 !important;
