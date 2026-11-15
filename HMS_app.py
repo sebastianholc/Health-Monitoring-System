@@ -243,6 +243,7 @@ def sidebar():
 # ==========================================
 
 selected_page = sidebar()
+overview.render_sidebar_clock()
 
 
 # ==========================================
