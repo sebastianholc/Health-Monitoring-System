@@ -286,7 +286,7 @@ def assistant(astronaut) -> None:
     border-radius: 4px;
 }}
 /* Kafelek pojedynczego dokumentu — pełna szerokość panelu biblioteki */
-[data-testid="stMainBlockContainer"] [class*="st-key-lib_doc_box_"],
+[data-testid="stMainBlockContainer"] [class*="st-key-medical_source_card_"],
 .lib-doc-card {{
     position: relative !important;
     background-color: #080B10 !important;
@@ -300,30 +300,20 @@ def assistant(astronaut) -> None:
     box-sizing: border-box !important;
     overflow: hidden !important;
 }}
-[data-testid="stMainBlockContainer"] [class*="st-key-lib_doc_box_"] > [data-testid="stVerticalBlock"] {{
-    gap: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
+[data-testid="stMainBlockContainer"] [class*="st-key-medical_source_card_"] [class*="st-key-medical_source_actions_"] {{
+    position: static !important;
+    inset: auto !important;
+    margin: 0 !important;
 }}
-[data-testid="stMainBlockContainer"] [class*="st-key-lib_doc_box_"] > [data-testid="stVerticalBlock"] > div:first-child {{
-    width: 100% !important;
-    max-width: 100% !important;
-}}
-/* Przycisk READ w prawym górnym rogu karty dokumentu */
-[data-testid="stMainBlockContainer"] [class*="st-key-lib_doc_box_"] > [data-testid="stVerticalBlock"] > div:last-child {{
-    position: absolute !important;
-    top: 7px !important;
-    right: 8px !important;
-    width: auto !important;
-    max-width: none !important;
-    z-index: 5 !important;
+[data-testid="stMainBlockContainer"] [class*="st-key-medical_source_card_"] .lib-doc-list-summary {{
+    display: block;
+    padding-bottom: 8px;
 }}
 .lib-doc-title {{
     font-size: 12.5px;
     font-weight: 700;
     color: #F8FAFC;
     line-height: 1.28;
-    padding-right: 54px;
     margin-bottom: 2px;
     overflow-wrap: break-word;
     word-break: break-word;
@@ -344,7 +334,7 @@ def assistant(astronaut) -> None:
     overflow-wrap: break-word;
     word-break: break-word;
 }}
-[data-testid="stMainBlockContainer"] [class*="st-key-lib_doc_box_"] button {{
+[data-testid="stMainBlockContainer"] [class*="st-key-medical_source_card_"] button {{
     background-color: rgba(0, 50, 160, 0.25) !important;
     border: 1px solid {NASA_BLUE} !important;
     color: #60A5FA !important;
@@ -360,7 +350,7 @@ def assistant(astronaut) -> None:
     height: 22px !important;
     line-height: 1 !important;
 }}
-[data-testid="stMainBlockContainer"] [class*="st-key-lib_doc_box_"] button:hover {{
+[data-testid="stMainBlockContainer"] [class*="st-key-medical_source_card_"] button:hover {{
     background-color: {NASA_BLUE} !important;
     border-color: #60A5FA !important;
     color: #FFFFFF !important;
@@ -614,13 +604,14 @@ def assistant(astronaut) -> None:
                     if not filtered_docs:
                         st.info("No medical documents match the current filter.")
                     for doc in filtered_docs:
-                        with st.container(key=f"lib_doc_box_{doc['id']}"):
+                        with st.container(key=f"medical_source_card_{doc['id']}"):
                             st.markdown(
                                 f'<div class="lib-doc-title">{doc["title"]}</div>'
                                 f'<div class="lib-doc-meta">{doc["category"]} · {doc["source"]} · {doc["year"]} · {doc["pages"]}</div>'
-                                f'<p class="lib-doc-summary">{doc["summary"]}</p>',
+                                f'<div class="lib-doc-summary lib-doc-list-summary">{doc["summary"]}</div>',
                                 unsafe_allow_html=True,
                             )
-                            if st.button("Read", key=f"open_doc_{doc['id']}"):
-                                st.session_state["selected_library_doc"] = doc["id"]
-                                st.rerun()
+                            with st.container(key=f"medical_source_actions_{doc['id']}"):
+                                if st.button("Read", key=f"read_medical_source_{doc['id']}"):
+                                    st.session_state["selected_library_doc"] = doc["id"]
+                                    st.rerun()
