@@ -1,7 +1,9 @@
+import base64
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
 from html import escape
+from pathlib import Path
 
 import streamlit as st
 
@@ -9,6 +11,68 @@ from astronaut import DEFAULT_DB
 from health_assessment import Assessment, Finding, RULES, assess_health
 
 SCHEDULE_DB = DEFAULT_DB.with_name("astronaut_health_demo_30d.db")
+
+FALLBACK_AVATAR_SVG = (
+    '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="12" cy="8" r="4"></circle>'
+    '<path d="M5 20a7 7 0 0 1 14 0"></path>'
+    '<circle cx="12" cy="8" r="6.5" stroke-dasharray="2 2" opacity="0.6"></circle>'
+    '</svg>'
+)
+
+
+@st.cache_data
+def _encode_image_file(file_path: str, mtime: float) -> str:
+    path = Path(file_path)
+    mime = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }.get(path.suffix.lower(), "image/jpeg")
+    encoded = base64.b64encode(path.read_bytes()).decode("utf-8")
+    return f"data:{mime};base64,{encoded}"
+
+
+def _resolve_astronaut_avatar(astronaut) -> str:
+    raw_path = getattr(astronaut, "image_path", None)
+    if not raw_path:
+        uri = SCHEDULE_DB.resolve().as_uri() + "?mode=ro"
+        try:
+            with closing(sqlite3.connect(uri, uri=True)) as connection:
+                row = connection.execute(
+                    "SELECT image_path FROM information WHERE astronaut_id = ?",
+                    (astronaut.id,),
+                ).fetchone()
+                if row and row[0]:
+                    raw_path = row[0]
+        except sqlite3.Error:
+            raw_path = None
+
+    if not raw_path:
+        return FALLBACK_AVATAR_SVG
+
+    cleaned = str(raw_path).strip().lstrip("/\\")
+    if cleaned.startswith(("./", ".\\")):
+        cleaned = cleaned[2:]
+
+    rel = Path(cleaned)
+    base_dirs = [SCHEDULE_DB.parent, Path(__file__).resolve().parents[1]]
+    candidates = []
+    for base in base_dirs:
+        candidates.append(base / rel)
+        if not rel.parts or rel.parts[0] != "images":
+            candidates.append(base / "images" / rel)
+        candidates.append(base / "images" / rel.name)
+
+    for candidate in candidates:
+        if candidate.is_file():
+            data_uri = _encode_image_file(str(candidate), candidate.stat().st_mtime)
+            return f'<img src="{data_uri}" alt="{escape(astronaut.name)}">'
+
+    return FALLBACK_AVATAR_SVG
 
 
 @st.fragment(run_every="1s")
@@ -135,6 +199,15 @@ def overview(astronaut):
     align-items: center;
     justify-content: center;
     color: #60A5FA;
+    overflow: hidden;
+    padding: 0;
+}
+.astronaut-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
 }
 .personal-fields {
     flex: 1;
@@ -332,6 +405,7 @@ def overview(astronaut):
     gender = escape(astronaut.gender or "N/A")
     age = astronaut.age()
     age_html = f'{age}<span class="param-unit">yrs</span>' if age is not None else "N/A"
+    avatar_html = _resolve_astronaut_avatar(astronaut)
 
     try:
         assessment = assess_health(astronaut.id, SCHEDULE_DB)
@@ -388,11 +462,7 @@ def overview(astronaut):
 </div>
 <div class="personal-layout">
 <div class="astronaut-avatar">
-<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-<circle cx="12" cy="8" r="4"></circle>
-<path d="M5 20a7 7 0 0 1 14 0"></path>
-<circle cx="12" cy="8" r="6.5" stroke-dasharray="2 2" opacity="0.6"></circle>
-</svg>
+{avatar_html}
 </div>
 <div class="personal-fields">
 <div class="param-item">

@@ -5,7 +5,6 @@ from tabs import overview, plots, measurments, assistant
 from astronaut import load_astronauts
 
 
-
 # ==========================================
 # PAGE CONFIGURATION
 # ==========================================
@@ -24,6 +23,8 @@ st.set_page_config(
 
 astronauts = {person.name: person for person in load_astronauts()}
 astronauts_names = list(astronauts)
+
+
 # ==========================================
 # PAGES
 # ==========================================
@@ -145,7 +146,7 @@ def sidebar():
             padding: 0 !important;
             width: 100% !important;
             background-color: #111625 !important; 
-            border-bottom: none !important; /* Usunięto czerwoną linię */
+            border-bottom: none !important;
             box-shadow: 0px 4px 15px rgba(0,0,0,0.6) !important;
         }
 
@@ -174,7 +175,7 @@ def sidebar():
         st.markdown(css, unsafe_allow_html=True)
 
         selected = option_menu(
-            menu_title="HEALTH MONITORING SYSTEM",
+            menu_title="HEALTH MONITORING\n SYSTEM",
             options=pages_names,
             icons=[
                 "grid",
@@ -198,9 +199,14 @@ def sidebar():
                 "menu-title": {
                     "font-size": "14px",
                     "font-weight": "800",
-                    "color": "#94A3B8",
-                    "padding": "25px 15px",
+                    "color": "#F8FAFC",
+                    "text-align": "center",
+                    "display": "block",
+                    "padding": "22px 15px 14px 15px",
+                    "margin": "0",
                     "letter-spacing": "2px",
+                    "line-height": "1.45",
+                    "white-space": "pre-line",
                 },
                 "icon": {
                     "color": "#FFFFFF",
@@ -209,7 +215,7 @@ def sidebar():
                 "nav": {
                     "display": "flex",
                     "flex-direction": "column",
-                    "height": "calc(100vh - 70px)",
+                    "height": "calc(100vh - 95px)",
                 },
                 "nav-item": {
                     "width": "100%",
@@ -217,11 +223,11 @@ def sidebar():
                 "nav-link": {
                     "font-size": "15px",
                     "text-align": "left",
-                    "margin": "4px 0", # Podświetlenie przylega do krawędzi (brak przerw)
-                    "padding": "12px 20px", # Zrekompensowane paddingiem
+                    "margin": "4px 0",
+                    "padding": "12px 20px",
                     "color": "#CBD5E1",
                     "border-radius": "8px",
-                    "width": "100%", # Na pełną szerokość
+                    "width": "100%",
                     "transition": "all 0.2s",
                 },
                 "nav-link-selected": {
@@ -233,8 +239,6 @@ def sidebar():
         )
 
     return selected
-
-
 
 
 # ==========================================
@@ -255,9 +259,9 @@ astronaut_name = option_menu(
     options=astronauts_names,
 
     icons=[
-        "person-badge",
-        "person-badge",
-        "person-badge"
+        "person-fill",
+        "person-fill",
+        "person-fill"
     ],
 
     default_index=0,
@@ -286,11 +290,11 @@ astronaut_name = option_menu(
         "nav-link": {
             "font-size": "15px",
             "text-align": "center",
-            "margin": "0",          # Usunięty wizualny "padding" (margines zewnętrzny)
-            "padding": "15px 0",    # Wewnętrzny odstęp dla odpowiedniej wysokości paska
+            "margin": "0",
+            "padding": "15px 0",
             "color": "#CBD5E1",
-            "border-radius": "8px", # Zostawione same zaokrąglone rogi
-            "width": "100%",        # Podświetlenie na pełną szerokość elementu
+            "border-radius": "8px",
+            "width": "100%",
             "white-space": "nowrap",
             "transition": "background-color 0.2s",
         },
