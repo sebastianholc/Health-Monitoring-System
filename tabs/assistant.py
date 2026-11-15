@@ -1,6 +1,15 @@
 """Zakładka Assistant z czatem AI oraz biblioteką literatury medycznej."""
 
+import re
+import sqlite3
+from html import escape
+
 import streamlit as st
+
+from astronaut import DEFAULT_DB
+from health_assessment import RULES, assess_health
+
+TELEMETRY_DB = DEFAULT_DB.with_name("astronaut_health_demo_30d.db")
 
 NASA_BLUE = "#0032A0"
 NASA_RED = "#E4002B"
@@ -91,40 +100,83 @@ MEDICAL_LIBRARY = [
 ]
 
 
-def _generate_mock_ai_response(prompt: str, astronaut) -> tuple[str, list[str]]:
-    """Generuje przykładową odpowiedź na podstawie parametrów astronauty i biblioteki medycznej."""
-    q = prompt.lower()
-    default_citations = [doc["source"] for doc in MEDICAL_LIBRARY[:2]]
+def _telemetry_reply(prompt: str, astronaut) -> str:
+    question = prompt.casefold()
+    tokens = set(re.findall(r"\w+", question))
+    astronaut_id = getattr(astronaut, "id", None)
+    if str(astronaut_id).zfill(3) == "002" and (
+        tokens & {"headache", "headaches"} or "head hurts" in question
+    ):
+        return (
+            "The baseline records show blood pressure of "
+            "164.52/104.02 mmHg on 5 Nov and SpO₂ of 89.74% on 13 Nov.\n"
+            "Flag both readings for review. In this scenario, ask for fresh blood "
+            "pressure and SpO₂ readings and pass them to the medical team with "
+            "the time the headache began. The baseline readings do not establish "
+            "the cause of the headache."
+        )
+    refresh = any(part in question for part in (
+        "refresh", "stale", "missing", "out of date", "odświe", "brak", "nieaktual",
+    ))
+    readiness = bool(tokens & {"eva", "readiness", "denied", "approved", "spacewalk"}) or "space walk" in question
+    sleep = bool(tokens & {"sleep", "sen", "snu", "rem", "fatigue", "zmęczenie"})
+    vitals = bool(tokens & {"vitals", "telemetry", "biometric", "telemetria", "parametry"})
+    if not any((refresh, readiness, sleep, vitals)):
+        return "Ask about EVA readiness, measurements to refresh, sleep score, or latest vitals."
 
-    if any(word in q for word in ["eva", "space walk", "spacewalk", "go"]):
-        response = (
-            f"Based on **{astronaut.name}**'s current telemetry (**HR:** {astronaut.heart_rate} BPM, "
-            f"**SpO₂:** {astronaut.spo2}%, **Temp:** {astronaut.temperature}°C), all primary biometric thresholds "
-            f"fall within the nominal EVA clearance band.\n\n"
-            f"**Recommendation:** Cleared (**GO**) for EVA, provided pre-breathe hydration protocol (1.0 L isotonic intake) is completed."
-        )
-        citations = ["ISS Medical Operations Flight Rules", "NASA-STD-3001 Vol. 2"]
-    elif any(word in q for word in ["sleep", "sen", "rem", "fatigue", "zmęczenie"]):
-        response = (
-            f"Recent sleep architecture analysis for **{astronaut.name}** indicates a drop in Slow-Wave and REM duration. "
-            f"To prevent cumulative cognitive fatigue:\n\n"
-            f"1. Shift cabin SSL lighting to warm spectrum (< 2700K) 90 minutes before sleep.\n"
-            f"2. Extend the upcoming rest window by 45 minutes.\n"
-            f"3. Re-evaluate HRV (RMSSD) after two recovery cycles."
-        )
-        citations = ["Aerospace Medicine & Human Performance", "NASA-STD-3001 Vol. 2"]
+    if astronaut_id is None:
+        return "Select a crew member with a database ID."
+    try:
+        assessment = assess_health(astronaut_id, TELEMETRY_DB)
+    except (sqlite3.Error, ValueError):
+        return "Telemetry unavailable. Check the SQLite file and measurement timestamps."
+
+    if assessment.mission_time is None:
+        return "No telemetry found for this crew member. Check the crew ID and available measurements."
+
+    if refresh:
+        # Use the existing assessment messages to retain Overview's freshness rules.
+        findings = [
+            finding for finding in assessment.findings
+            if finding.description.startswith(("No sample available.", "Last sample at ", "Invalid value."))
+        ]
+        if not findings:
+            return "All parameters used in the demo readiness check have current, valid samples."
+        lines = [f"Measurements to refresh or verify for {astronaut.name}"]
+        lines.extend(f"• {finding.title}: {finding.description}" for finding in findings)
+        return "\n".join(lines)
+
+    if readiness:
+        status = "APPROVED" if assessment.is_go else "DENIED"
+        lines = [
+            f"Demo EVA readiness for {astronaut.name}: {status}",
+            f"Checked parameters: {assessment.checked_count}/{len(RULES)}",
+        ]
+        for finding in assessment.findings:
+            label = "Monitor" if finding.priority == "medium" else "Review"
+            lines.append(f"• {label} — {finding.title}: {finding.description}")
+        if not assessment.findings:
+            lines.append("All configured demo checks passed.")
+        return "\n".join(lines)
+
+    if sleep:
+        codes = ("sleep_score",)
+        title = "Latest sleep score"
     else:
-        response = (
-            f"Telemetry summary for **{astronaut.name}**:\n"
-            f"• **Heart Rate:** {astronaut.heart_rate} BPM (Nominal: 50–85 BPM)\n"
-            f"• **SpO₂ Saturation:** {astronaut.spo2}% (Nominal: >= 95%)\n"
-            f"• **Core Temperature:** {astronaut.temperature}°C (Nominal: 36.1–37.5°C)\n\n"
-            f"Cardiopulmonary and thermal indicators are stable. Cross-referencing **{len(MEDICAL_LIBRARY)} medical sources** "
-            f"shows no acute contraindications."
-        )
-        citations = default_citations
+        codes = ("heart_rate_bpm", "spo2_pct", "temperature_c")
+        title = "Latest vital signs"
 
-    return response, citations
+    lines = [f"{title} for {astronaut.name}"]
+    for code in codes:
+        rule = RULES[code]
+        value = assessment.latest_values.get(code)
+        reading = f"{value:g} {rule.unit}" if value is not None else "Unavailable"
+        lines.append(f"• {rule.label}: {reading}")
+        lines.extend(
+            f"  {finding.description}" for finding in assessment.findings
+            if finding.title == rule.label
+        )
+    return "\n".join(lines)
 
 
 def assistant(astronaut) -> None:
@@ -267,23 +319,6 @@ def assistant(astronaut) -> None:
 }}
 .chat-sender-user {{
     text-align: right;
-}}
-.chat-citations {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-    padding-top: 7px;
-    border-top: 1px solid #1E293B;
-}}
-.citation-pill {{
-    font-size: 10px;
-    font-weight: 600;
-    color: #93C5FD;
-    background-color: #111625;
-    border: 1px solid #1E293B;
-    padding: 2px 7px;
-    border-radius: 4px;
 }}
 /* Kafelek pojedynczego dokumentu — pełna szerokość panelu biblioteki */
 [data-testid="stMainBlockContainer"] [class*="st-key-medical_source_card_"],
@@ -439,17 +474,15 @@ def assistant(astronaut) -> None:
     if "selected_library_doc" not in st.session_state:
         st.session_state["selected_library_doc"] = None
 
-    chat_key = f"medical_chat_{astronaut.name}"
+    chat_key = f"telemetry_chat_{getattr(astronaut, 'id', None) or astronaut.name}"
     if chat_key not in st.session_state:
         st.session_state[chat_key] = [
             {
                 "role": "assistant",
                 "content": (
-                    f"Flight Surgeon AI online. Loaded biometric profile for **{astronaut.name}** "
-                    f"(HR: {astronaut.heart_rate} BPM, SpO₂: {astronaut.spo2}%, Temp: {astronaut.temperature}°C). "
-                    f"Ask about EVA readiness, recovery protocols, or medical standards."
+                    f"Telemetry assistant for {astronaut.name}. "
+                    "Ask about demo EVA readiness, measurements to refresh, sleep score, or latest vitals."
                 ),
-                "citations": ["NASA-STD-3001 Vol. 2", "ISS Medical Operations Flight Rules"],
             }
         ]
 
@@ -457,7 +490,7 @@ def assistant(astronaut) -> None:
     chat_col, library_col = st.columns([1.15, 1], gap="small")
 
     # ==========================================
-    # LEWA KOLUMNA: CZAT Z LLM
+    # LEWA KOLUMNA: CZAT TELEMETRYCZNY
     # ==========================================
     with chat_col:
         with st.container(key="assistant_chat_card"):
@@ -465,7 +498,7 @@ def assistant(astronaut) -> None:
             with head_left:
                 st.markdown(
                     f'<div class="nasa-panel-header" style="border:none; margin:0; padding:0;">'
-                    f'<span class="nasa-panel-title">Flight Surgeon AI // {astronaut.name}</span>'
+                    f'<span class="nasa-panel-title">Telemetry Assistant // {escape(astronaut.name)}</span>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
@@ -486,36 +519,30 @@ def assistant(astronaut) -> None:
                         st.markdown(
                             f'<div class="chat-msg-row">'
                             f'<div class="chat-sender chat-sender-user">Flight Controller</div>'
-                            f'<div class="chat-msg-user">{msg["content"]}</div>'
+                            f'<div class="chat-msg-user">{escape(msg["content"])}</div>'
                             f'</div>',
                             unsafe_allow_html=True,
                         )
                     else:
-                        formatted_text = msg["content"].replace("\n", "<br>")
-                        citations_html = ""
-                        if msg.get("citations"):
-                            pills = "".join(
-                                f'<span class="citation-pill">REF: {cite}</span>'
-                                for cite in msg["citations"]
-                            )
-                            citations_html = f'<div class="chat-citations">{pills}</div>'
-
+                        formatted_text = escape(msg["content"]).replace("\n", "<br>")
                         st.markdown(
                             f'<div class="chat-msg-row">'
-                            f'<div class="chat-sender">Flight Surgeon LLM</div>'
-                            f'<div class="chat-msg-ai">{formatted_text}{citations_html}</div>'
+                            f'<div class="chat-sender">Telemetry Assistant</div>'
+                            f'<div class="chat-msg-ai">{formatted_text}</div>'
                             f'</div>',
                             unsafe_allow_html=True,
                         )
 
-            qp1, qp2, qp3 = st.columns(3, gap="small")
+            quick_columns = st.columns(4, gap="small")
             quick_prompt = None
-            if qp1.button("EVA Readiness", key="qp_eva", use_container_width=True):
-                quick_prompt = "Evaluate current EVA spacewalk readiness based on vitals."
-            if qp2.button("Sleep Protocol", key="qp_sleep", use_container_width=True):
-                quick_prompt = "Recommend countermeasures for recent REM and deep sleep deficit."
-            if qp3.button("Vitals Check", key="qp_vitals", use_container_width=True):
-                quick_prompt = "Summarize current biometric parameters against NASA-STD-3001."
+            for column, (label, prompt) in zip(quick_columns, (
+                ("EVA Decision", "Explain the EVA readiness decision."),
+                ("Data to Refresh", "Which measurements should I refresh?"),
+                ("Sleep Score", "Show the latest sleep score."),
+                ("Latest Vitals", "Show the latest vital signs."),
+            )):
+                if column.button(label, key=f"telemetry_prompt_{label}", use_container_width=True):
+                    quick_prompt = prompt
 
             with st.form(key="assistant_chat_form", clear_on_submit=True):
                 input_col, btn_col = st.columns([4.2, 1], gap="small")
@@ -531,9 +558,9 @@ def assistant(astronaut) -> None:
             active_prompt = quick_prompt or (user_text.strip() if submitted and user_text.strip() else None)
             if active_prompt:
                 st.session_state[chat_key].append({"role": "user", "content": active_prompt})
-                reply, cites = _generate_mock_ai_response(active_prompt, astronaut)
+                reply = _telemetry_reply(active_prompt, astronaut)
                 st.session_state[chat_key].append(
-                    {"role": "assistant", "content": reply, "citations": cites}
+                    {"role": "assistant", "content": reply}
                 )
                 st.rerun()
 
